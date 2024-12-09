@@ -4,3 +4,5 @@ python-dotenv
 sqlite3
 pyjwt
 bcrypt
+youtube-transcript-api
+streamlit-scrollable-textbox

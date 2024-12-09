@@ -2,12 +2,41 @@ import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 from auth import init_db, show_login_page
+from youtube_transcript_api import YouTubeTranscriptApi
+from urllib.parse import urlparse
+import streamlit_scrollable_textbox as stx
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize the database
 init_db()
+
+
+
+def get_video_id(url):
+    """Extract video ID from YouTube URL"""
+    if 'youtu.be' in url:
+        return url.split('/')[-1]
+    query = urlparse(url)
+    if query.hostname == 'www.youtube.com':
+        return query.query[2:]
+    return url.split('/')[-1]
+
+def get_transcript(video_url):
+    """Get transcript of YouTube video"""
+    try:
+        video_id = get_video_id(video_url)
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript_text = ''
+        for segment in transcript_list:
+            transcript_text += segment['text'] + ' '
+        return transcript_text
+    except Exception as e:
+        return f"Transcript not available: {str(e)}"
+
+
+
 
 # Set up the page configuration
 st.set_page_config(page_title="Edusphere Education", page_icon="🎓")
@@ -23,15 +52,6 @@ if 'authenticated' not in st.session_state:
 if not st.session_state.authenticated:
     show_login_page()
 else:
-    # Add logout button in sidebar
-    # with st.sidebar:
-    #     if st.button("Logout"):
-    #         st.session_state.authenticated = False
-    #         st.session_state.messages = []
-    #         st.session_state.selected_subject = None
-    #         st.session_state.username = None  # Clear username on logout
-    #         st.rerun()
-    
     # Initialize session state variables
     if 'messages' not in st.session_state:
         st.session_state.messages = []
@@ -107,53 +127,53 @@ else:
     # Chapter videos dictionary
     chapter_videos = {
         "Mathematics": [
-            "https://www.youtube.com/watch?v=NybHckSEQBI",  # Algebra
-            "https://www.youtube.com/watch?v=nwLEByAAqlM",  # Geometry
-            "https://www.youtube.com/watch?v=UukVP7Mg3TU",  # Calculus
-            "https://www.youtube.com/watch?v=MXaJ7sa7q-8",  # Statistics
-            "https://www.youtube.com/watch?v=PUB0TaZ7bhA"   # Trigonometry
+            "https://youtu.be/NybHckSEQBI",  # Algebra
+            "https://youtu.be/nwLEByAAqlM",  # Geometry
+            "https://youtu.be/UukVP7Mg3TU",  # Calculus
+            "https://youtu.be/sxQaBpKfDRk",  # Statistics
+            "https://youtu.be/T9lt6MZKLck"   # Trigonometry
         ],
         "Physics": [
-            "https://www.youtube.com/watch?v=aD58U3Ib0ng",  # Mechanics
-            "https://www.youtube.com/watch?v=JA7K5egyLzs",  # Thermodynamics
-            "https://youtube.com/watch?v=IityUpVVD38",  # Electromagnetism
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Optics
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Quantum Physics
+            "https://youtu.be/Q-EAgsiOLcA",  # Mechanics
+            "https://youtu.be/4i1MUWJoI0U",  # Thermodynamics
+            "https://youtu.be/79_SF5AZtzo",  # Electromagnetism
+            "https://youtu.be/Oh4m8Ees-3Q",  # Optics
+            "https://youtu.be/Usu9xZfabPM"   # Quantum Physics
         ],
         "Chemistry": [
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Organic Chemistry
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Inorganic Chemistry
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Physical Chemistry
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Analytical Chemistry
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Biochemistry
+            "https://youtu.be/PmvLB5dIEp8",  # Organic Chemistry
+            "https://youtu.be/cYAcrSIFvco",  # Inorganic Chemistry
+            "https://youtu.be/B9DuTNaPm4M",  # Physical Chemistry
+            "https://youtu.be/MPqCzsntjAE",  # Analytical Chemistry
+            "https://youtu.be/CHJsaq2lNjU"   # Biochemistry
         ],
         "Biology": [
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Cell Biology
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Genetics
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Evolution
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Ecology
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Human Anatomy
+            "https://youtu.be/URUJD5NEXC8",  # Cell Biology
+            "https://youtu.be/v8tJGlicgp8",  # Genetics
+            "https://youtu.be/GhHOjC4oxh8",  # Evolution
+            "https://youtu.be/9dAcEBXAFoo",  # Ecology
+            "https://youtu.be/Ae4MadKPJC0"   # Human Anatomy
         ],
         "History": [
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Ancient Civilizations
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Middle Ages
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Renaissance
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Modern History
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Contemporary History
+            "https://youtu.be/wX6J0Gd2EC8",  # Ancient Civilizations
+            "https://youtu.be/H5AVPmAZ8o8",  # Middle Ages
+            "https://youtu.be/Vufba_ZcoR0",  # Renaissance
+            "https://youtu.be/kUWEYLVooxU",  # Modern History
+            "https://youtu.be/T5PwyuzSYcs"   # Contemporary History
         ],
         "Literature": [
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Poetry
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Drama
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Fiction
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Non-Fiction
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Literary Criticism
+            "https://youtu.be/drPoZMqHTAw",  # Poetry
+            "https://youtu.be/3CvJKTChsl4",  # Drama
+            "https://youtu.be/QrUPneyZNf0",  # Fiction
+            "https://youtu.be/QrUPneyZNf0",  # Non-Fiction
+            "https://youtu.be/3naf-KE0uvI"   # Literary Criticism
         ],
         "Computer Science": [
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Programming Basics
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Data Structures
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Algorithms
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g",  # Web Development
-            "https://www.youtube.com/watch?v=2zj0g1g1g1g"   # Machine Learning
+            "https://youtu.be/l26oaHV7D40",  # Programming Basics
+            "https://youtu.be/DuDz6B4cqVc",  # Data Structures
+            "https://youtu.be/rL8X2mlNHPM",  # Algorithms
+            "https://youtu.be/ysEN5RaKOlA",  # Web Development
+            "https://youtu.be/PeMlggyqz0Y"   # Machine Learning
         ]
     }
 
@@ -180,7 +200,7 @@ else:
         
          # Display subject image
         if selected_subject:
-            st.image(subject_images[selected_subject], caption=f"{selected_subject} Visual", use_container_width=True)
+            st.image(subject_images[selected_subject], caption=f"{selected_subject} Subject", use_container_width=True)
 
         
         # When subject changes, set the first chapter as default
@@ -221,26 +241,57 @@ else:
             st.session_state.username = None  # Clear username on logout
             st.rerun()
 
-        
-    
-    # Display the corresponding video for the selected chapter in the main view
-    if selected_subject and st.session_state.selected_chapter:
-        try:
-            chapter_index = next(i for i, chapter in enumerate(subject_chapters[selected_subject]) if chapter["title"] == st.session_state.selected_chapter)
-            st.video(chapter_videos[selected_subject][chapter_index])  # Display the video
-        except StopIteration:
-            st.error("Selected chapter not found.")
-
-
     # Display current subject and chapter
     st.subheader(f"Currently studying: {selected_subject} - {st.session_state.selected_chapter}")
+    
+    # Add CSS to create a fixed video container
+    st.markdown("""
+        <style>
+            .fixed-video {
+                position: sticky;
+                top: 0;
+                z-index: 999;
+                background-color: white;
+                padding: 10px 0;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Create two main sections using columns
+    video_col, spacer = st.columns([20, 1])
+    
+    # Display video in the fixed section
+    with video_col:
+        st.markdown('<div class="fixed-video">', unsafe_allow_html=True)
+        if selected_subject and st.session_state.selected_chapter:
+            try:
+                chapter_index = next(
+                    i for i, chapter in enumerate(subject_chapters[selected_subject]) 
+                    if chapter["title"] == st.session_state.selected_chapter
+                )
+                st.video(chapter_videos[selected_subject][chapter_index])
+                
+            except StopIteration:
+                st.error("Selected chapter not found.")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Create a scrollable container for transcript and chat
+    scrollable_content = st.container()
+    with scrollable_content:
+        # Display transcript
+        if selected_subject and st.session_state.selected_chapter:
+            try:
+                transcript = get_transcript(chapter_videos[selected_subject][chapter_index])
+                stx.scrollableTextbox(transcript, height=200)
+            except StopIteration:
+                pass
 
     # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    # Chat input
+    # Chat input and response section
     if prompt := st.chat_input("Ask your question here..."):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -249,15 +300,39 @@ else:
         with st.chat_message("user"):
             st.write(prompt)
 
-        # Prepare the context for the AI
-        context = f"You are an expert tutor in {selected_subject}. Provide clear, educational responses suitable for students. If using mathematical equations, explain them clearly."
+        # Get current context (subject, chapter, and transcript)
+        current_subject = selected_subject
+        current_chapter = st.session_state.selected_chapter
+        
+        try:
+            chapter_index = next(
+                i for i, chapter in enumerate(subject_chapters[current_subject]) 
+                if chapter["title"] == current_chapter
+            )
+            chapter_description = subject_chapters[current_subject][chapter_index]["description"]
+            video_transcript = get_transcript(chapter_videos[current_subject][chapter_index])
+        except:
+            chapter_description = ""
+            video_transcript = ""
+
+        # Prepare the context for the AI with specific subject and chapter information
+        context = f"""You are an expert tutor in {current_subject}, specifically teaching about {current_chapter}. 
+        Chapter Description: {chapter_description}
+        
+        The student is currently watching a video about this topic. Here's the context from the video transcript:
+        {video_transcript[:1000]}  # Using first 1000 characters of transcript for context
+        
+        Please provide clear, educational responses suitable for students learning this specific topic. 
+        If using mathematical equations or technical terms, explain them clearly.
+        Base your response on the specific chapter content and video material being discussed."""
         
         # Generate AI response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
+                # Include previous conversation context along with current context
                 full_prompt = [
                     {"role": "system", "content": context},
-                    *st.session_state.messages
+                    *[msg for msg in st.session_state.messages[-5:]]  # Include last 5 messages for context
                 ]
                 
                 # Create an empty placeholder
@@ -267,7 +342,7 @@ else:
                 
                 # Stream the response
                 stream = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=[{"role": m["role"], "content": m["content"]} for m in full_prompt],
                     temperature=0.7,
                     stream=True,
@@ -297,3 +372,4 @@ else:
         }
     </style>
     """, unsafe_allow_html=True)
+
