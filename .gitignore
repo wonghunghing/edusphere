@@ -103,3 +103,9 @@ openai.key
 *.temp
 .DS_Store
 Thumbs.db 
+
+# Authentication
+users.db
+.env
+__pycache__/
+*.pyc 
