@@ -1,6 +1,6 @@
-# 🎓 Edusphere Educational Chatbot
+# 🎓 Edusphere Educational
 
-An interactive educational assistant powered by OpenAI's GPT-3.5, built with Streamlit. This chatbot provides personalized tutoring across multiple subjects with an engaging visual interface.
+An interactive educational assistant built with Streamlit. This chatbot provides personalized tutoring across multiple subjects with an engaging visual interface.
 
 ## 🌟 Features
 
@@ -87,7 +87,7 @@ This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- OpenAI for the GPT-3.5 API
+- OpenAI
 - Streamlit for the web framework
 - Freepik for the subject images
 - Various educational content providers for the embedded videos
