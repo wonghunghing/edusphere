@@ -49,6 +49,7 @@ pip install -r requirements.txt
 
 4. Run the application:
 
+streamlit run main.py --server.port 8501
 
 ## 🔧 Configuration
 
