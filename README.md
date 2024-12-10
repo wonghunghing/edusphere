@@ -2,6 +2,8 @@
 
 An interactive educational assistant built with Streamlit. This chatbot provides personalized tutoring across multiple subjects with an engaging visual interface.
 
+![Edusphere](images/edusphere.png)
+
 ## 🌟 Features
 
 - **Multi-subject Support**: Choose from various subjects including:
