@@ -1,3 +1,4 @@
+```markdown
 # 🎓 Edusphere Educational
 
 An interactive educational assistant built with Streamlit. This chatbot provides personalized tutoring across multiple subjects with an engaging visual interface.
@@ -30,6 +31,8 @@ An interactive educational assistant built with Streamlit. This chatbot provides
 
 ### Prerequisites
 
+To run the application, make sure you have the following installed:
+
 - Python 3.7+
 - OpenAI API key
 - Streamlit
@@ -37,29 +40,31 @@ An interactive educational assistant built with Streamlit. This chatbot provides
 ### Installation
 
 1. Clone the repository:
+   ```bash
+   git clone https://github.com/wonghunghing/edusphere.git
+   ```
 
-git clone https://github.com/wonghunghing/edusphere.git
+2. Install the required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2. Install required packages:
-
-
-pip install -r requirements.txt
-
-
-3. Create a `.env` file in the project root and add your OpenAI API key:
-
+3. Create a `.env` file in the project root and add your OpenAI API key.
 
 4. Run the application:
-
-streamlit run main.py --server.port 8501
+   ```bash
+   streamlit run main.py --server.port 8501
+   ```
 
 5. Build the Docker image:
-
-docker build -t edusphere .
+   ```bash
+   docker build -t edusphere .
+   ```
 
 6. Run the Docker container:
-
-docker run --name edusphere -p 8501:8501 edusphere
+   ```bash
+   docker run --name edusphere -p 8501:8501 edusphere
+   ```
 
 ## 🔧 Configuration
 
@@ -67,20 +72,20 @@ The application uses environment variables for configuration. Make sure to set u
 
 ## 💻 Usage
 
-1. Select a subject from the sidebar dropdown
-2. View the subject-specific image and educational video
-3. Ask questions in the chat interface
-4. Receive detailed, educational responses from the AI tutor
+1. Select a subject from the sidebar dropdown.
+2. View the subject-specific image and educational video.
+3. Ask questions in the chat interface.
+4. Receive detailed, educational responses from the AI tutor.
 
 ## 📚 Project Structure
 
+```plaintext
 educational-chatbot/
-├── main.py # Main application file
-├── .env # Environment variables
-├── requirements.txt # Project dependencies
-└── README.md # Project documentation
-
-
+├── main.py               # Main application file
+├── .env                  # Environment variables
+├── requirements.txt      # Project dependencies
+└── README.md             # Project documentation
+```
 
 ## 📋 Requirements
 
@@ -106,3 +111,4 @@ This project is licensed under the MIT License.
 ---
 
 Made with ❤️ by unrestrictable
+```
