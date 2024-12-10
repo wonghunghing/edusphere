@@ -51,6 +51,14 @@ pip install -r requirements.txt
 
 streamlit run main.py --server.port 8501
 
+5. Build the Docker image:
+
+docker build -t edusphere .
+
+6. Run the Docker container:
+
+docker run --name edusphere -p 8501:8501 edusphere
+
 ## 🔧 Configuration
 
 The application uses environment variables for configuration. Make sure to set up your `.env` file with the necessary API keys and configurations.
