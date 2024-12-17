@@ -5,6 +5,9 @@ from auth import init_db, show_login_page
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse
 import streamlit_scrollable_textbox as stx
+import streamlit.components.v1 as components
+from typing import List
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,24 +19,120 @@ init_db()
 
 def get_video_id(url):
     """Extract video ID from YouTube URL"""
-    if 'youtu.be' in url:
+    if 'embed/' in url:
+        # Extract ID from embed URL
+        return url.split('embed/')[-1].split('?')[0]
+    elif 'youtu.be' in url:
+        # Extract ID from youtu.be URL
         return url.split('/')[-1]
-    query = urlparse(url)
-    if query.hostname == 'www.youtube.com':
-        return query.query[2:]
-    return url.split('/')[-1]
+    else:
+        # Extract ID from regular YouTube URL
+        return url.split('/')[-1]
 
 def get_transcript(video_url):
-    """Get transcript of YouTube video"""
+    """Get transcript of YouTube video with timestamps"""
     try:
         video_id = get_video_id(video_url)
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript_text = ''
-        for segment in transcript_list:
-            transcript_text += segment['text'] + ' '
-        return transcript_text
+        # Keep the timestamp information
+        return transcript_list
     except Exception as e:
         return f"Transcript not available: {str(e)}"
+
+def create_video_player(video_id, height=450):
+    """Create a video player with progress tracking"""
+    # Add the greeting to session state messages when a new chapter is selected
+    if 'messages' in st.session_state:
+        current_subject = st.session_state.get('previous_subject')
+        current_chapter = st.session_state.get('selected_chapter')
+        previous_chapter = st.session_state.get('previous_chapter')
+        
+        # Only reset messages if the chapter has changed
+        if previous_chapter != current_chapter:
+            greeting_message = {
+                "role": "assistant",
+                "content": f"Welcome to the {current_chapter} lesson in {current_subject}! I'm your AI tutor, and I'm here to help you understand this topic. Feel free to ask any questions in any languages as you watch the video."
+            }
+            st.session_state.messages = [greeting_message]  # Reset messages and add greeting
+            st.session_state.previous_chapter = current_chapter  # Update the previous chapter
+
+    html_content = f"""
+    <div id="video-container">
+        <iframe id="youtube-iframe" 
+                width="100%" 
+                height="{height}" 
+                src="https://www.youtube.com/embed/{video_id}?enablejsapi=1" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+        </iframe>
+        <div id="progress-display" style="padding: 10px; background-color: #f0f2f6; border-radius: 5px; text-align: center; margin: 10px 0;">
+            <span style="font-family: monospace; font-size: 24px; font-weight: bold;">Progress: 0%</span>
+        </div>
+    </div>
+    
+    <script>
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        
+        var player;
+        function onYouTubeIframeAPIReady() {{
+            player = new YT.Player('youtube-iframe', {{
+                events: {{
+                    'onStateChange': onPlayerStateChange
+                }}
+            }});
+        }}
+        
+        function onPlayerStateChange(event) {{
+            if (event.data == YT.PlayerState.PLAYING) {{
+                trackProgress();
+            }}
+        }}
+        
+        function trackProgress() {{
+            var progressInterval = setInterval(function() {{
+                if (player && player.getCurrentTime) {{
+                    var currentTime = Math.ceil(player.getCurrentTime());
+                    var duration = Math.ceil(player.getDuration());
+                    var progressPercentage;
+                    
+                    // Check if we're at or very close to the end
+                    if (duration - currentTime <= 0.1) {{
+                        progressPercentage = 100;
+                        clearInterval(progressInterval);
+                    }} else {{
+                        progressPercentage = (currentTime / duration * 100).toFixed(2);
+                    }}
+                    
+                    // Update progress display
+                    document.getElementById('progress-display').innerHTML = 
+                        '<span style="font-family: monospace; font-size: 24px; font-weight: bold;">' +
+                        'Progress: ' + progressPercentage + '% Current: '+ currentTime + 's Duration: '+ duration +'s'+'</span>';
+                    
+                    // Send current time and duration to Streamlit
+                    window.parent.postMessage({{
+                        type: 'video_time',
+                        time: currentTime,
+                        duration: duration,
+                        progress: progressPercentage
+                    }}, '*');
+                }}
+            }}, 1000);
+        }}
+    </script>
+    """
+    return components.html(html_content, height=height + 100)
+
+def process_chat_stream(stream) -> str:
+    """Process chat stream and return full response"""
+    full_response = ""
+    for chunk in stream:
+        if chunk.choices[0].delta.content is not None:
+            full_response += chunk.choices[0].delta.content
+    return full_response
 
 
 
@@ -59,6 +158,10 @@ else:
         st.session_state.selected_subject = None
     if 'selected_chapter' not in st.session_state:
         st.session_state.selected_chapter = None
+    if 'previous_chapter' not in st.session_state:
+        st.session_state.previous_chapter = None
+    if 'quiz_data' not in st.session_state:
+        st.session_state.quiz_data = None
 
     # Subject images dictionary
     subject_images = {
@@ -127,54 +230,54 @@ else:
     # Chapter videos dictionary
     chapter_videos = {
         "Mathematics": [
-            "https://youtu.be/NybHckSEQBI",  # Algebra
-            "https://youtu.be/nwLEByAAqlM",  # Geometry
-            "https://youtu.be/UukVP7Mg3TU",  # Calculus
-            "https://youtu.be/sxQaBpKfDRk",  # Statistics
-            "https://youtu.be/T9lt6MZKLck"   # Trigonometry
+            "https://www.youtube.com/embed/NybHckSEQBI?enablejsapi=1",  # Algebra
+            "https://www.youtube.com/embed/nwLEByAAqlM?enablejsapi=1",  # Geometry
+            "https://www.youtube.com/embed/UukVP7Mg3TU?enablejsapi=1",  # Calculus
+            "https://www.youtube.com/embed/sxQaBpKfDRk?enablejsapi=1",  # Statistics
+            "https://www.youtube.com/embed/T9lt6MZKLck?enablejsapi=1"   # Trigonometry
         ],
         "Physics": [
-            "https://youtu.be/Q-EAgsiOLcA",  # Mechanics
-            "https://youtu.be/4i1MUWJoI0U",  # Thermodynamics
-            "https://youtu.be/79_SF5AZtzo",  # Electromagnetism
-            "https://youtu.be/Oh4m8Ees-3Q",  # Optics
-            "https://youtu.be/Usu9xZfabPM"   # Quantum Physics
+            "https://www.youtube.com/embed/ZM8ECpBuQYE?enablejsapi=1",  # Mechanics
+            "https://www.youtube.com/embed/4PkiGQEQ_Pw?enablejsapi=1",  # Thermodynamics
+            "https://www.youtube.com/embed/x1-SibwIPM4?enablejsapi=1",  # Electromagnetism
+            "https://www.youtube.com/embed/7BXvc9W97iU?enablejsapi=1",  # Optics
+            "https://www.youtube.com/embed/Q1YqgPAtzho?enablejsapi=1"   # Quantum Physics
         ],
         "Chemistry": [
-            "https://youtu.be/PmvLB5dIEp8",  # Organic Chemistry
-            "https://youtu.be/cYAcrSIFvco",  # Inorganic Chemistry
-            "https://youtu.be/B9DuTNaPm4M",  # Physical Chemistry
-            "https://youtu.be/MPqCzsntjAE",  # Analytical Chemistry
-            "https://youtu.be/CHJsaq2lNjU"   # Biochemistry
+            "https://www.youtube.com/embed/bka20Q9TN6M?enablejsapi=1",  # Organic Chemistry
+            "https://www.youtube.com/embed/6pUzPh_lCO8?enablejsapi=1",  # Inorganic Chemistry
+            "https://www.youtube.com/embed/cyhxvQN8SQ4?enablejsapi=1",  # Physical Chemistry
+            "https://www.youtube.com/embed/FSyAehMdpyI?enablejsapi=1",  # Analytical Chemistry
+            "https://www.youtube.com/embed/lJKNDXXV3vE?enablejsapi=1"   # Biochemistry
         ],
         "Biology": [
-            "https://youtu.be/URUJD5NEXC8",  # Cell Biology
-            "https://youtu.be/v8tJGlicgp8",  # Genetics
-            "https://youtu.be/GhHOjC4oxh8",  # Evolution
-            "https://youtu.be/9dAcEBXAFoo",  # Ecology
-            "https://youtu.be/Ae4MadKPJC0"   # Human Anatomy
+            "https://www.youtube.com/embed/URUJD5NEXC8?enablejsapi=1",  # Cell Biology
+            "https://www.youtube.com/embed/v8tJGlicgp8?enablejsapi=1",  # Genetics
+            "https://www.youtube.com/embed/GhHOjC4oxh8?enablejsapi=1", # Evolution
+            "https://www.youtube.com/embed/9dAcEBXAFoo?enablejsapi=1",  # Ecology
+            "https://www.youtube.com/embed/Ae4MadKPJC0?enablejsapi=1"   # Human Anatomy
         ],
         "History": [
-            "https://youtu.be/wX6J0Gd2EC8",  # Ancient Civilizations
-            "https://youtu.be/H5AVPmAZ8o8",  # Middle Ages
-            "https://youtu.be/Vufba_ZcoR0",  # Renaissance
-            "https://youtu.be/kUWEYLVooxU",  # Modern History
-            "https://youtu.be/T5PwyuzSYcs"   # Contemporary History
+            "https://www.youtube.com/embed/wX6J0Gd2EC8?enablejsapi=1",  # Ancient Civilizations
+            "https://www.youtube.com/embed/H5AVPmAZ8o8?enablejsapi=1",  # Middle Ages
+            "https://www.youtube.com/embed/Vufba_ZcoR0?enablejsapi=1",  # Renaissance
+            "https://www.youtube.com/embed/kUWEYLVooxU?enablejsapi=1",  # Modern History
+            "https://www.youtube.com/embed/T5PwyuzSYcs?enablejsapi=1"  # Contemporary History
         ],
         "Literature": [
-            "https://youtu.be/drPoZMqHTAw",  # Poetry
-            "https://youtu.be/3CvJKTChsl4",  # Drama
-            "https://youtu.be/QrUPneyZNf0",  # Fiction
-            "https://youtu.be/QrUPneyZNf0",  # Non-Fiction
-            "https://youtu.be/3naf-KE0uvI"   # Literary Criticism
+            "https://www.youtube.com/embed/drPoZMqHTAw?enablejsapi=1",  # Poetry
+            "https://www.youtube.com/embed/3CvJKTChsl4?enablejsapi=1",  # Drama
+            "https://www.youtube.com/embed/QrUPneyZNf0?enablejsapi=1",  # Fiction
+            "https://www.youtube.com/embed/QrUPneyZNf0?enablejsapi=1",  # Non-Fiction
+            "https://www.youtube.com/embed/3naf-KE0uvI?enablejsapi=1"   # Literary Criticism
         ],
         "Computer Science": [
-            "https://youtu.be/l26oaHV7D40",  # Programming Basics
-            "https://youtu.be/DuDz6B4cqVc",  # Data Structures
-            "https://youtu.be/rL8X2mlNHPM",  # Algorithms
-            "https://youtu.be/ysEN5RaKOlA",  # Web Development
-            "https://youtu.be/PeMlggyqz0Y"   # Machine Learning
-        ]
+            "https://www.youtube.com/embed/l26oaHV7D40?enablejsapi=1",  # Programming Basics
+            "https://www.youtube.com/embed/DuDz6B4cqVc?enablejsapi=1",  # Data Structures
+            "https://www.youtube.com/embed/rL8X2mlNHPM?enablejsapi=1",  # Algorithms
+            "https://www.youtube.com/embed/ysEN5RaKOlA?enablejsapi=1",  # Web Development
+            "https://www.youtube.com/embed/PeMlggyqz0Y?enablejsapi=1"  # Machine Learning
+        ] 
     }
 
     # Subject selection
@@ -242,7 +345,7 @@ else:
             st.rerun()
 
     # Display current subject and chapter
-    st.subheader(f"Currently studying: {selected_subject} - {st.session_state.selected_chapter}")
+    st.subheader(f"EDUSPHERE: {selected_subject} - {st.session_state.selected_chapter}")
     
     # Add CSS to create a fixed video container
     st.markdown("""
@@ -269,7 +372,13 @@ else:
                     i for i, chapter in enumerate(subject_chapters[selected_subject]) 
                     if chapter["title"] == st.session_state.selected_chapter
                 )
-                st.video(chapter_videos[selected_subject][chapter_index])
+                
+                video_url = chapter_videos[selected_subject][chapter_index]
+                video_id = get_video_id(video_url)
+                create_video_player(video_id)
+
+                # Get transcript data
+                transcript_data = get_transcript(video_url)
                 
             except StopIteration:
                 st.error("Selected chapter not found.")
@@ -281,8 +390,42 @@ else:
         # Display transcript
         if selected_subject and st.session_state.selected_chapter:
             try:
-                transcript = get_transcript(chapter_videos[selected_subject][chapter_index])
-                stx.scrollableTextbox(transcript, height=200)
+                transcript_data = get_transcript(chapter_videos[selected_subject][chapter_index])
+                if isinstance(transcript_data, list):
+                    # Get current video time from session state
+                    current_time = st.session_state.get('video_time_update', {}).get('time', 0)
+                    
+                    # Create HTML for transcript with highlighting
+                    transcript_html = ""
+                    for i, segment in enumerate(transcript_data):
+                        # Convert timestamp to minutes:seconds format
+                        minutes = int(segment['start'] // 60)
+                        seconds = int(segment['start'] % 60)
+                        timestamp = f"[{minutes:02d}:{seconds:02d}]"
+                        
+                        # Determine if this is the current segment
+                        is_current = False
+                        if i < len(transcript_data) - 1:
+                            if segment['start'] <= current_time < transcript_data[i + 1]['start']:
+                                is_current = True
+                        else:
+                            if segment['start'] <= current_time:
+                                is_current = True
+                        
+                        # Add segment with appropriate styling
+                        segment_class = "transcript-segment" + (" current-segment" if is_current else "")
+                        transcript_html += f'<div class="{segment_class}">{timestamp} {segment["text"]}</div>'
+                    
+                    st.markdown("""### 📜Transcript""")
+                    
+                    # Display transcript using HTML
+                    st.markdown(
+                        f'<div style="height: 100px; overflow-y: auto; margin-bottom: 50px;">{transcript_html}</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    # Handle case where transcript is an error message
+                    st.error(str(transcript_data))
             except StopIteration:
                 pass
 
@@ -290,16 +433,137 @@ else:
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
+            # Add Quiz expander after the welcome message
+            if message == st.session_state.messages[0]:  # If it's the first (welcome) message
+                # Create quiz section in an expander
+                quiz_expander = st.expander("Chapter Quiz", expanded=False)
+                with quiz_expander:
+                    current_subject = st.session_state.get('previous_subject')
+                    current_chapter = st.session_state.selected_chapter
+                    
+                    # Generate quiz only if it doesn't exist for current chapter or chapter has changed
+                    if (st.session_state.quiz_data is None or 
+                        st.session_state.quiz_data.get('chapter') != current_chapter):
+                        
+                        try:
+                            chapter_index = next(
+                                i for i, chapter in enumerate(subject_chapters[current_subject]) 
+                                if chapter["title"] == current_chapter
+                            )
+                            transcript_data = get_transcript(chapter_videos[current_subject][chapter_index])
+                            
+                            if isinstance(transcript_data, list):
+                                # Combine transcript text for context
+                                transcript_text = " ".join([segment["text"] for segment in transcript_data])
+                                
+                                # Generate quiz context for GPT
+                                quiz_context = f"""You are a {current_subject} lecturer teaching about {current_chapter}.
+                                Based on this lesson content:
+                                {transcript_text[:1000]}
+                                
+                                Generate a natural-sounding multiple choice question that a lecturer would ask to test understanding of a key concept.
+                                Format the response as follows:
+                                QUESTION: [Your question here]
+                                A: [First option]
+                                B: [Second option]
+                                C: [Third option]
+                                D: [Fourth option]
+                                
+                                Make the question sound natural as if asked in a classroom setting.
+                                Do not mention transcripts or videos in the question."""
+                                
+                                # Generate question using GPT
+                                quiz_response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=[{"role": "system", "content": quiz_context}],
+                                    temperature=0.7
+                                ).choices[0].message.content
+                                
+                                # Split the response into question and options
+                                response_parts = quiz_response.split('\n')
+                                question = response_parts[0].replace('QUESTION: ', '')
+                                options = [opt.split(': ')[1] for opt in response_parts[1:5]]
+                                
+                                # Generate key terms
+                                key_terms_context = f"""As a {current_subject} lecturer teaching about {current_chapter},
+                                based on this lesson content:
+                                {transcript_text[:1000]}
+                                
+                                List 4 key terms or concepts that were covered in the lesson.
+                                Make sure each term is a single line and clearly relevant to {current_chapter}."""
+                                
+                                key_terms_response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=[{"role": "system", "content": key_terms_context}],
+                                    temperature=0.7
+                                ).choices[0].message.content.split('\n')
+                                
+                                # Store quiz data in session state
+                                st.session_state.quiz_data = {
+                                    'chapter': current_chapter,
+                                    'question': question,
+                                    'options': options,
+                                    'key_terms': key_terms_response
+                                }
+                            else:
+                                st.error("Could not generate quiz: Transcript not available")
+                                
+                        except Exception as e:
+                            st.error(f"Could not generate quiz: {str(e)}")
+                    
+                    # Display quiz using stored data
+                    if st.session_state.quiz_data and st.session_state.quiz_data['chapter'] == current_chapter:
+                        st.header(f"Quiz: {current_chapter}")
+                        
+                        # Question 1 - Generated from transcript
+                        st.markdown("**Question 1:**")
+                        st.write(st.session_state.quiz_data['question'])
+                        q1 = st.radio(
+                            f"Choose your answer",
+                            st.session_state.quiz_data['options'],
+                            key="q1"
+                        )
+                        
+                        # Question 2 - Open-ended reflection
+                        st.markdown("**Question 2:**")
+                        st.write(f"What is the most important concept you learned about {current_chapter}?")
+                        q2 = st.text_input(
+                            "Your answer:",
+                            key="q2"
+                        )
+                        
+                        # Question 3 - Key terms from transcript
+                        st.markdown("**Question 3:**")
+                        st.write("Select all key terms that were covered in this lesson:")
+                        q3 = st.multiselect(
+                            "Select terms:",
+                            st.session_state.quiz_data['key_terms'],
+                            key="q3"
+                        )
+                        
+                        if st.button("Submit Quiz", key="submit_quiz"):
+                            st.success("Quiz submitted successfully!")
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": "Great job completing the quiz! Do you have any questions about the topics covered?"
+                            })
+                            st.rerun()
 
     # Chat input and response section
-    if prompt := st.chat_input("Ask your question here..."):
+    if 'processing' not in st.session_state:
+        st.session_state.processing = False
+
+    if prompt := st.chat_input("Ask your question here...", key="chat_input"):
+        # Disable the input while processing
+        st.session_state.processing = True
+        
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         # Display user message
         with st.chat_message("user"):
             st.write(prompt)
-
+        
         # Get current context (subject, chapter, and transcript)
         current_subject = selected_subject
         current_chapter = st.session_state.selected_chapter
@@ -315,32 +579,27 @@ else:
             chapter_description = ""
             video_transcript = ""
 
-        # Prepare the context for the AI with specific subject and chapter information
+        # Prepare the context
         context = f"""You are an expert tutor in {current_subject}, specifically teaching about {current_chapter}. 
         Chapter Description: {chapter_description}
         
         The student is currently watching a video about this topic. Here's the context from the video transcript:
-        {video_transcript[:1000]}  # Using first 1000 characters of transcript for context
+        {video_transcript[:1000]}
         
-        Please provide clear, educational responses suitable for students learning this specific topic. 
-        If using mathematical equations or technical terms, explain them clearly.
-        Base your response on the specific chapter content and video material being discussed."""
+        Please provide clear, educational responses suitable for students learning this specific topic."""
         
         # Generate AI response
+        full_prompt = [
+            {"role": "system", "content": context},
+            *[msg for msg in st.session_state.messages[-5:]]
+        ]
+        
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                # Include previous conversation context along with current context
-                full_prompt = [
-                    {"role": "system", "content": context},
-                    *[msg for msg in st.session_state.messages[-5:]]  # Include last 5 messages for context
-                ]
+            try:
+                # Show temporary "thinking" message
+                thinking_placeholder = st.empty()
+                thinking_placeholder.write("Thinking...")
                 
-                # Create an empty placeholder
-                message_placeholder = st.empty()
-                # Initialize an empty string to store the full response
-                full_response = ""
-                
-                # Stream the response
                 stream = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": m["role"], "content": m["content"]} for m in full_prompt],
@@ -348,17 +607,21 @@ else:
                     stream=True,
                 )
                 
-                # Process the stream
-                for chunk in stream:
-                    if chunk.choices[0].delta.content is not None:
-                        full_response += chunk.choices[0].delta.content
-                        message_placeholder.markdown(full_response + "▌")
+                response = process_chat_stream(stream)
                 
-                # Remove the cursor and display final response
-                message_placeholder.markdown(full_response)
+                # Clear thinking message and show response
+                thinking_placeholder.empty()
+                st.write(response)
                 
                 # Add AI response to chat history
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                
+            except Exception as e:
+                st.error(f"Error generating response: {str(e)}")
+            
+            finally:
+                # Re-enable the input
+                st.session_state.processing = False
 
     # Add some styling
     st.markdown("""
@@ -369,6 +632,34 @@ else:
         img {
             border-radius: 10px;
             margin: 10px 0;
+        }
+        .transcript-segment {
+            padding: 5px;
+            margin: 2px 0;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+        .current-segment {
+            background-color: #ffd700;
+            font-weight: bold;
+        }
+        /* Smooth transitions for chat messages */
+        .stChatMessage {
+            transition: all 0.3s ease-out;
+        }
+        
+        /* Improve chat input visibility */
+        .stChatInputContainer {
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Disable chat input while processing */
+        .stChatInputContainer.processing {
+            opacity: 0.7;
+            pointer-events: none;
         }
     </style>
     """, unsafe_allow_html=True)

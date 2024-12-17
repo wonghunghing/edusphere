@@ -80,7 +80,7 @@ The application uses environment variables for configuration. Make sure to set u
 ## 📚 Project Structure
 
 ```plaintext
-educational-chatbot/
+edusphere/
 ├── main.py               # Main application file
 ├── .env                  # Environment variables
 ├── requirements.txt      # Project dependencies
